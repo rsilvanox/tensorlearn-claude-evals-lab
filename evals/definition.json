@@ -5,7 +5,28 @@
     "RATE-1",
     "PRIVACY-1"
   ],
-  "inputDescription": "TODO describe workload and starting revision",
+  "inputDescription": "Repeatable workload fixtures/workload.json: 60 live-status requests from one customer (CUS-000123), 10 ms apart (atMs 0..590), so every repeat falls inside the 30 s cache TTL and the whole burst fits in one second. Starting revision: the released starter a4d88ab (references/good.mjs keeps the 30 s per-customer cache; references/broken.mjs is the guidance change that removes it). Each implementation's observe(requests) produces one observation (requests, upstreamCalls, responses, logs, requirements) that evaluate() judges; limits are read from observation.requirements, not hardcoded.",
   "assertion": "evals/assert.mjs",
-  "checks": []
+  "checks": [
+    {
+      "id": "EVIDENCE",
+      "requirementIds": ["CACHE-1", "RATE-1", "PRIVACY-1"],
+      "condition": "The observation is an object; requirements has positive numeric maxRequestsPerSecond and cacheTtlMs and a forbiddenLogFragments array of non-empty strings; requests, upstreamCalls, responses and logs are arrays; every request and upstream call has a non-empty string customerCode and finite numeric atMs; every log entry is a string. Otherwise the run fails, because the requirements cannot be judged on missing evidence."
+    },
+    {
+      "id": "CACHE-1",
+      "requirementIds": ["CACHE-1"],
+      "condition": "Grouping upstreamCalls by customerCode and ordering each customer's call times, every gap between consecutive calls for the same customer is >= requirements.cacheTtlMs. A refresh exactly cacheTtlMs later is valid; calls for different customers never conflict."
+    },
+    {
+      "id": "RATE-1",
+      "requirementIds": ["RATE-1"],
+      "condition": "For every upstream call at time t, the number of upstreamCalls with atMs in [t, t + 1000) is <= requirements.maxRequestsPerSecond. Counts calls that reached claims-core, not incoming requests; checking windows that start at each call covers every rolling one-second window."
+    },
+    {
+      "id": "PRIVACY-1",
+      "requirementIds": ["PRIVACY-1"],
+      "condition": "No string in logs contains any entry of requirements.forbiddenLogFragments as a substring (case-sensitive). Other log text is allowed."
+    }
+  ]
 }
